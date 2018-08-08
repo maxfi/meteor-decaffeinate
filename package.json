@@ -1,6 +1,6 @@
 {
 	"name": "meteor-decaffeinate",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Quickly and easily decaffeinate, lint and fix (xo) coffeescript files in a meteor project.",
 	"license": "MIT",
 	"repository": "maxfi/meteor-decaffeinate",
