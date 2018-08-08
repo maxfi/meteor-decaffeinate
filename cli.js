@@ -20,4 +20,11 @@ const cli = meow(`
 }
 })
 
+if (cli.input.length === 0) {
+	console.error(`
+Missing arguments
+`)
+	cli.showHelp()
+}
+
 meteorDecaffeinate(cli.input, cli.flags)

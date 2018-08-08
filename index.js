@@ -71,7 +71,15 @@ async function addHeaders(paths) {
 }
 
 async function fix(paths) {
+	// Only proceed if there are paths to avoid running `xo --fix` on all files
+	if (paths.length === 0) {
+		return
+	}
+	// Only proceed if a package.json is found
 	const {pkg} = await readPkgUp()
+	if (!pkg) {
+		return
+	}
 	const hasXo = (pkg.devDependencies && pkg.devDependencies.xo) || (pkg.dependencies && pkg.dependencies.xo)
 	if (hasXo) {
 		console.log('xo detected. Fixing...')
