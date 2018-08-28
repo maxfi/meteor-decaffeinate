@@ -1,4 +1,5 @@
 const path = require('path')
+const fs = require('fs')
 const util = require('util')
 const dashify = require('dashify')
 const isFile = require('is-file')
@@ -25,19 +26,39 @@ function filePaths(fileNames) {
 	return paths
 }
 
+// Decaffeinates files
+// Returns the paths of the resulting js files
 async function decaffeinate(paths) {
-	return Promise.all(paths.map(x => decaffeinateLib.run(['--use-js-modules', x])))
+	console.log('Decaffeinating files...')
+	return Promise.all(
+		paths.map(async x => {
+			// Returns Promise<void> from https://github.com/decaffeinate/decaffeinate/blob/8b8f6b86e06a10d3bca2519baea53432332147cb/src/cli.ts#L13
+			// exported from https://github.com/decaffeinate/decaffeinate/blob/8b8f6b86e06a10d3bca2519baea53432332147cb/src/index.ts#L23
+			await decaffeinateLib.run(['--use-js-modules', x])
+
+			// Because the above doesn't return the path of the js file we create and return it
+			const {dir, name} = path.parse(x)
+			return path.join(dir, name + '.js')
+		})
+	)
 }
 
-function dashifyPaths(paths) {
-	return paths.map(x => {
-		const {dir, name} = path.parse(x)
-		return path.join(dir, dashify(name) + '.js')
+// Takes CamelCased files and converts them to dashified paths
+function dashifyFilePaths(paths) {
+	return paths.map(oldPath => {
+		const {dir, name, ext} = path.parse(oldPath)
+		const newPath = path.join(dir, dashify(name) + ext)
+		fs.renameSync(oldPath, newPath)
+		return newPath
 	})
 }
 
 async function getGlobals(path) {
-	const {results} = await xo.lintFiles([path])
+	// Explicitly pass the `cwd` as root directory of `meteor-decaffeinate`
+	// to have xo use the xo settings from this package rather the xo
+	// settings from the actual cwd as we only care about gettings the
+	// globals from this call to `xo.lintFiles`
+	const {results} = await xo.lintFiles([path], {cwd: __dirname})
 	return _.pipe(
 		_.map(
 			_.pipe(
@@ -65,6 +86,9 @@ function meteorImports(globals) {
 async function addHeaders(paths) {
 	return Promise.all(paths.map(async x => {
 		const globals = await getGlobals(x)
+		if (globals.length === 0) {
+			return
+		}
 		const fileHeader = esLintGlobals(globals) + meteorImports(globals)
 		return prependFile(x, fileHeader)
 	}))
@@ -82,7 +106,7 @@ async function fix(paths) {
 	}
 	const hasXo = (pkg.devDependencies && pkg.devDependencies.xo) || (pkg.dependencies && pkg.dependencies.xo)
 	if (hasXo) {
-		console.log('xo detected. Fixing...')
+		console.log('\nXO detected. Fixing...')
 		try {
 			const {stdout} = await execa('xo', ['--fix', ...paths])
 			return stdout
@@ -95,20 +119,22 @@ async function fix(paths) {
 
 async function run(input, options = {}) {
 	const coffeePaths = filePaths(input)
-	await decaffeinate(coffeePaths)
-
-	const jsPaths = dashifyPaths(coffeePaths)
+	const decaffeinatedPaths = await decaffeinate(coffeePaths)
 	await del(coffeePaths)
+	const files = dashifyFilePaths(decaffeinatedPaths)
 
-	await addHeaders(jsPaths)
-	await fix(jsPaths)
+	await addHeaders(files)
+	await fix(files)
+
+	console.log('\nNew files:')
+	files.forEach(x => console.log(x))
 
 	const {editor} = options
 	if (editor) {
-		openEditor(jsPaths, {editor})
+		openEditor(files, {editor})
 	}
 	return {
-		files: jsPaths
+		files
 	}
 }
 
