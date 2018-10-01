@@ -14,25 +14,34 @@ const p = (...paths) => path.join(__dirname, ...paths)
 
 const cli = (args = [], opts = {}) => execa(p('../cli.js'), args, opts)
 
+const run = async (t, fixture) => {
+	const fixturePath = p(`./fixtures/${fixture}.coffee`)
+	const tmpPath = p(`./tmp/${fixture}.coffee`)
+	const resultPath = p(`./tmp/${fixture}.js`)
+	const cleanupPattern = p(`./tmp/${fixture}.*`)
+
+	try {
+		await cp(fixturePath, tmpPath)
+
+		// Check function returned correct result
+		const result = await meteorDecaffeinate([tmpPath])
+		t.deepEqual(result, {
+			files: [resultPath]
+		})
+
+		// Check the file output is correct
+		const actual = await readFile(result.files[0], 'utf-8')
+		t.snapshot(actual)
+	} finally {
+		// Cleanup
+		await del(cleanupPattern)
+	}
+}
+
 test('should stop and show help when no arguments are passed', async t => {
 	const {code, stderr} = await t.throws(cli())
 	t.is(code, 2)
 	t.regex(stderr, /\nMissing arguments\n/)
 })
 
-test('it works', async t => {
-	const input = p('./tmp/input.coffee')
-	await cp(p('./fixtures/input.coffee'), input)
-
-	const result = await meteorDecaffeinate([input])
-	t.deepEqual(result, {
-		files: [p('./tmp/input.js')]
-	})
-
-	const actual = await readFile(result.files[0], 'utf-8')
-	const expected = await readFile(p('./fixtures/output.js'), 'utf-8')
-	t.is(actual, expected)
-
-	// Cleanup
-	await del(p('./tmp'))
-})
+test('handles combined meteor and non-meteor globals', t => run(t, 'combined-globals'))
