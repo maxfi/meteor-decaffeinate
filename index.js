@@ -74,7 +74,7 @@ async function getGlobals(path) {
 
 function esLintGlobals(globals) {
 	const str = globals.filter(x => !METEOR_IMPORTS[x]).join(' ')
-	return `/* global ${str} */\n\n`
+	return str ? `/* global ${str} */\n\n` : ''
 }
 
 function meteorImports(globals) {
