@@ -67,7 +67,7 @@ async function getGlobals(path) {
 			)
 		),
 		_.flatten,
-		_.map(x => x.message.match(/^'(\w+)'/)[1]),
+		_.map(x => x.message.match(/^'(.+)'/)[1]),
 		_.uniq
 	)(results)
 }
