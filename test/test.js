@@ -45,3 +45,7 @@ test('should stop and show help when no arguments are passed', async t => {
 })
 
 test('handles combined meteor and non-meteor globals', t => run(t, 'combined-globals'))
+
+test('handles only meteor globals', t => run(t, 'only-meteor-globals'))
+
+test('handles only non-meteor globals', t => run(t, 'only-non-meteor-globals'))
